@@ -40,3 +40,8 @@ artifacts/*
 # Local datasets (uncomment if you don't want to version datasets)
 # datasets/*
 # !datasets/.gitkeep
+
+# Generated training inputs from UI/testing
+datasets/form_training_data.csv
+datasets/form_samples_*.txt
+datasets/uploaded_*.csv

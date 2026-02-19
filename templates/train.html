@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Train Custom Dataset</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <div class="topbar">
+          <a href="/" class="link-btn">Back To Predict</a>
+        </div>
+
+        <p class="kicker">Training UI</p>
+        <h1>Train From Form Data</h1>
+        <p class="subtitle">Paste examples directly. One sample per line. Real samples are optional if already present in saved training data.</p>
+
+        <form class="form-grid" method="post" action="/train-ui">
+          <label class="label" for="fakeSamples">Fake Samples (one per line)</label>
+          <textarea id="fakeSamples" name="fake_samples" placeholder="Fake sample 1&#10;Fake sample 2" required></textarea>
+
+          <label class="label" for="realSamples">Real Samples (one per line, optional)</label>
+          <textarea id="realSamples" name="real_samples" placeholder="Real sample 1&#10;Real sample 2"></textarea>
+
+          <label class="label" for="testSize">Test Size (0-1)</label>
+          <input id="testSize" name="test_size" type="number" min="0.05" max="0.95" step="0.05" value="0.2" required />
+
+          <label class="label" for="randomState">Random State</label>
+          <input id="randomState" name="random_state" type="number" step="1" value="42" required />
+
+          <button id="trainBtn" type="submit">Start Training</button>
+        </form>
+
+        {% if result %}
+        <section class="result">
+          <p class="result-label">{{ result.message }}</p>
+          <p class="result-confidence">
+            Validation accuracy: {{ "%.2f"|format(result.accuracy * 100) }}% | Total rows: {{ result.total_samples }}
+          </p>
+          <p class="result-confidence">
+            Appended rows: {{ result.appended_rows }} | Train rows: {{ result.train_samples }} | Validation rows: {{ result.validation_samples }}
+          </p>
+          <p class="result-confidence">Dataset: <code>{{ result.dataset_path }}</code></p>
+        </section>
+        {% endif %}
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+      </section>
+    </main>
+    <script>
+      const trainForm = document.querySelector('form[action="/train-ui"]');
+      const fakeField = document.getElementById("fakeSamples");
+      const realField = document.getElementById("realSamples");
+
+      function validateAtLeastOne() {
+        const hasFake = fakeField.value.trim().length > 0;
+        const hasReal = realField.value.trim().length > 0;
+        const msg = "Enter at least one sample in Fake or Real.";
+        fakeField.setCustomValidity(hasFake || hasReal ? "" : msg);
+      }
+
+      fakeField.addEventListener("input", validateAtLeastOne);
+      realField.addEventListener("input", validateAtLeastOne);
+      trainForm.addEventListener("submit", validateAtLeastOne);
+    </script>
+  </body>
+</html>

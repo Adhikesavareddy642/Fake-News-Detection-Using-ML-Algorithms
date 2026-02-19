@@ -34,6 +34,13 @@ def get_model():
     return model
 
 
+def reload_model():
+    """Reload model from disk and refresh cache."""
+    global model, model_load_error
+    model, model_load_error = load_model()
+    return model
+
+
 def normalize_label(raw_pred):
     """Normalize different model label formats into UI labels."""
     if isinstance(raw_pred, int):
