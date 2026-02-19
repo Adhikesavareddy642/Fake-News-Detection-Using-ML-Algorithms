@@ -1,0 +1,157 @@
+:root {
+  --bg-start: #f5f7ff;
+  --bg-end: #e6f7f4;
+  --ink: #18202a;
+  --muted: #4d6076;
+  --card: #ffffffcc;
+  --accent: #0f766e;
+  --accent-2: #f59e0b;
+  --danger: #b42318;
+  --ok-bg: #ecfdf3;
+  --error-bg: #ffeceb;
+  --border: #d6e2f2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 10%, #fff 0%, transparent 35%),
+    linear-gradient(140deg, var(--bg-start), var(--bg-end));
+}
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  width: min(760px, 100%);
+  border: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(6px);
+  border-radius: 20px;
+  padding: clamp(20px, 4vw, 36px);
+  box-shadow: 0 20px 50px rgba(24, 32, 42, 0.08);
+  animation: lift 500ms ease;
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  margin: 8px 0 12px;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(1.75rem, 4vw, 2.8rem);
+}
+
+.subtitle {
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.label {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+textarea:focus {
+  outline: 2px solid #89c9c3;
+  border-color: #89c9c3;
+}
+
+button {
+  margin-top: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--accent), #0ea5a1);
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(0.98);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert,
+.result,
+.error {
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 14px 0 4px;
+}
+
+.alert {
+  background: #fff8e6;
+  border: 1px solid #ffe0a3;
+  color: #8a5a00;
+}
+
+.result {
+  background: var(--ok-bg);
+  border: 1px solid #a3e4bd;
+}
+
+.result-label {
+  margin: 0;
+  font-size: 1.06rem;
+  font-weight: 700;
+}
+
+.result-confidence {
+  margin: 4px 0 0;
+}
+
+.error {
+  background: var(--error-bg);
+  border: 1px solid #f7b7b2;
+  color: var(--danger);
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes lift {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

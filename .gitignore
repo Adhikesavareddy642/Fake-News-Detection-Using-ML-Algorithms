@@ -1,0 +1,42 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging/build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test/cache/tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Local runtime artifacts
+*.log
+
+# Model/data artifacts (keep folder, ignore large/generated files)
+artifacts/*
+!artifacts/.gitkeep
+
+# Local datasets (uncomment if you don't want to version datasets)
+# datasets/*
+# !datasets/.gitkeep

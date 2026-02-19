@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fake News Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <p class="kicker">Machine Learning UI</p>
+        <h1>Fake News Detector</h1>
+        <p class="subtitle">Paste a headline or full article, then run a prediction.</p>
+
+        {% if not model_found %}
+        <div class="alert">
+          Model not found at <code>{{ model_path }}</code>. Add your exported pipeline to start predictions.
+        </div>
+        {% endif %}
+
+        <label for="newsText" class="label">News Content</label>
+        <textarea
+          id="newsText"
+          placeholder="Example: Government confirms a major policy change effective next week..."
+        ></textarea>
+
+        <button id="predictBtn">Detect</button>
+
+        <section id="result" class="result hidden">
+          <p class="result-label" id="resultLabel"></p>
+          <p class="result-confidence" id="resultConfidence"></p>
+        </section>
+
+        <p id="error" class="error hidden"></p>
+      </section>
+    </main>
+
+    <script>
+      const predictBtn = document.getElementById("predictBtn");
+      const newsText = document.getElementById("newsText");
+      const resultBox = document.getElementById("result");
+      const resultLabel = document.getElementById("resultLabel");
+      const resultConfidence = document.getElementById("resultConfidence");
+      const errorBox = document.getElementById("error");
+
+      async function predict() {
+        errorBox.classList.add("hidden");
+        resultBox.classList.add("hidden");
+
+        const text = newsText.value.trim();
+        if (!text) {
+          errorBox.textContent = "Please enter text before running detection.";
+          errorBox.classList.remove("hidden");
+          return;
+        }
+
+        predictBtn.disabled = true;
+        predictBtn.textContent = "Checking...";
+
+        try {
+          const response = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          const data = await response.json();
+
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Prediction failed.");
+          }
+
+          resultLabel.textContent = `Prediction: ${data.label}`;
+          if (data.confidence !== null && data.confidence !== undefined) {
+            resultConfidence.textContent = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+          } else {
+            resultConfidence.textContent = "Confidence: Not available for this model";
+          }
+          resultBox.classList.remove("hidden");
+        } catch (err) {
+          errorBox.textContent = err.message;
+          errorBox.classList.remove("hidden");
+        } finally {
+          predictBtn.disabled = false;
+          predictBtn.textContent = "Detect";
+        }
+      }
+
+      predictBtn.addEventListener("click", predict);
+    </script>
+  </body>
+</html>
