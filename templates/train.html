@@ -3,75 +3,296 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Train Custom Dataset</title>
+    <title>Truth Lens | Training Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body>
-    <main class="page">
-      <section class="card">
-        <div class="topbar">
-          <a href="/" class="link-btn">Back To Predict</a>
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-c"></div>
+
+    <main class="shell shell-train">
+      <header class="topbar reveal">
+        <div class="brand-block">
+          <p class="brand">Truth Lens</p>
+          <p class="app-name">Fake news detection App</p>
         </div>
+        <a class="ghost-link" href="{{ url_for('main.home') }}">Back To Detection</a>
+      </header>
 
-        <p class="kicker">Training UI</p>
-        <h1>Train From Form Data</h1>
-        <p class="subtitle">Paste examples directly. One sample per line. Real samples are optional if already present in saved training data.</p>
-
-        <form class="form-grid" method="post" action="/train-ui">
-          <label class="label" for="fakeSamples">Fake Samples (one per line)</label>
-          <textarea id="fakeSamples" name="fake_samples" placeholder="Fake sample 1&#10;Fake sample 2" required></textarea>
-
-          <label class="label" for="realSamples">Real Samples (one per line, optional)</label>
-          <textarea id="realSamples" name="real_samples" placeholder="Real sample 1&#10;Real sample 2"></textarea>
-
-          <label class="label" for="testSize">Test Size (0-1)</label>
-          <input id="testSize" name="test_size" type="number" min="0.05" max="0.95" step="0.05" value="0.2" required />
-
-          <label class="label" for="randomState">Random State</label>
-          <input id="randomState" name="random_state" type="number" step="1" value="42" required />
-
-          <button id="trainBtn" type="submit">Start Training</button>
-        </form>
-
-        {% if result %}
-        <section class="result">
-          <p class="result-label">{{ result.message }}</p>
-          <p class="result-confidence">
-            Validation accuracy: {{ "%.2f"|format(result.accuracy * 100) }}% | Total rows: {{ result.total_samples }}
-          </p>
-          <p class="result-confidence">
-            Appended rows: {{ result.appended_rows }} | Train rows: {{ result.train_samples }} | Validation rows: {{ result.validation_samples }}
-          </p>
-          <p class="result-confidence">Dataset: <code>{{ result.dataset_path }}</code></p>
-        </section>
-        {% endif %}
-
-        {% if error %}
-        <p class="error">{{ error }}</p>
-        {% endif %}
+      <section class="hero reveal reveal-delay-1">
+        <p class="kicker">Training Studio</p>
+        <h1>Create custom examples and retrain in one flow.</h1>
+        <p class="subtitle">
+          Add multiple `REAL` and `FAKE` samples, review the queue, then run retraining against your base dataset.
+        </p>
       </section>
-    </main>
-    <script>
-      const trainForm = document.querySelector('form[action="/train-ui"]');
-      const fakeField = document.getElementById("fakeSamples");
-      const realField = document.getElementById("realSamples");
 
-      function validateAtLeastOne() {
-        const hasFake = fakeField.value.trim().length > 0;
-        const hasReal = realField.value.trim().length > 0;
-        const msg = "Enter at least one sample in Fake or Real.";
-        fakeField.setCustomValidity(hasFake || hasReal ? "" : msg);
+      <div class="page-grid reveal reveal-delay-2">
+        <section class="panel train-panel">
+          {% if not model_found %}
+          <div class="alert alert-warning">
+            No saved model found at <code>{{ model_path }}</code>. Training will create one.
+          </div>
+          {% endif %}
+
+          <div class="queue-header">
+            <h2>Compose Training Batch</h2>
+            <span id="queuedCount" class="queue-pill">0 queued</span>
+          </div>
+
+          <label for="sampleText">Sample Text</label>
+          <textarea id="sampleText" placeholder="Example: Verified report confirms official statement..."></textarea>
+
+          <label for="sampleLabel">Label</label>
+          <select id="sampleLabel">
+            <option value="REAL">REAL</option>
+            <option value="FAKE">FAKE</option>
+          </select>
+
+          <div class="actions">
+            <button id="addSampleBtn" type="button">Add Sample</button>
+            <button id="trainBtn" type="button">Train Model</button>
+            <button id="clearBtn" class="soft-btn" type="button">Clear Queue</button>
+          </div>
+
+          <div id="trainProgressWrap" class="train-progress hidden">
+            <div class="train-progress-head">
+              <span id="trainProgressText">Preparing training...</span>
+              <span id="trainProgressPct">0%</span>
+            </div>
+            <div class="train-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="trainProgressBar" class="train-progress-bar"></div>
+            </div>
+          </div>
+
+          <div class="sample-list-wrap">
+            <p class="mini-title">Queued Samples</p>
+            <ul id="samplesList" class="sample-list"></ul>
+            <p id="emptyHint" class="hint">No samples added yet.</p>
+          </div>
+
+          <div id="trainResult" class="alert alert-success hidden"></div>
+          <div id="trainError" class="alert alert-error hidden"></div>
+        </section>
+
+        <aside class="panel info-panel">
+          <h3>Training Checklist</h3>
+          <ul class="checklist">
+            <li>Include both classes (`REAL` and `FAKE`) to avoid class imbalance.</li>
+            <li>Prefer diverse, realistic language for better generalization.</li>
+            <li>Use 4+ total examples before training.</li>
+          </ul>
+
+          <p class="mini-title">Quick Hints</p>
+          <p class="panel-note">Short samples are accepted, but paragraph-level examples usually improve results.</p>
+
+          <div class="status-card">
+            <span class="status-dot status-on"></span>
+            <p>Live queue updates enabled</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const sampleText = document.getElementById("sampleText");
+      const sampleLabel = document.getElementById("sampleLabel");
+      const addSampleBtn = document.getElementById("addSampleBtn");
+      const trainBtn = document.getElementById("trainBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const samplesList = document.getElementById("samplesList");
+      const emptyHint = document.getElementById("emptyHint");
+      const trainResult = document.getElementById("trainResult");
+      const trainError = document.getElementById("trainError");
+      const queuedCount = document.getElementById("queuedCount");
+      const trainProgressWrap = document.getElementById("trainProgressWrap");
+      const trainProgressBar = document.getElementById("trainProgressBar");
+      const trainProgressPct = document.getElementById("trainProgressPct");
+      const trainProgressText = document.getElementById("trainProgressText");
+      const trainProgressTrack = document.querySelector(".train-progress-track");
+
+      const samples = [];
+      let progressValue = 0;
+      let progressTimer = null;
+
+      function renderSamples() {
+        samplesList.innerHTML = "";
+        queuedCount.textContent = `${samples.length} queued`;
+
+        if (!samples.length) {
+          emptyHint.classList.remove("hidden");
+          return;
+        }
+
+        emptyHint.classList.add("hidden");
+
+        samples.forEach((sample, index) => {
+          const item = document.createElement("li");
+          item.className = "sample-item";
+          item.style.animationDelay = `${index * 40}ms`;
+
+          const text = document.createElement("p");
+          text.className = "sample-item-text";
+          text.textContent = sample.text;
+
+          const meta = document.createElement("div");
+          meta.className = "sample-item-meta";
+
+          const tag = document.createElement("span");
+          tag.className = `tag ${sample.label === "FAKE" ? "tag-fake" : "tag-real"}`;
+          tag.textContent = sample.label;
+
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "remove-btn";
+          removeBtn.textContent = "Remove";
+          removeBtn.addEventListener("click", () => {
+            samples.splice(index, 1);
+            renderSamples();
+          });
+
+          meta.appendChild(tag);
+          meta.appendChild(removeBtn);
+          item.appendChild(text);
+          item.appendChild(meta);
+          samplesList.appendChild(item);
+        });
       }
 
-      fakeField.addEventListener("input", validateAtLeastOne);
-      realField.addEventListener("input", validateAtLeastOne);
-      trainForm.addEventListener("submit", validateAtLeastOne);
+      function addSample() {
+        trainResult.classList.add("hidden");
+        trainError.classList.add("hidden");
+
+        const text = sampleText.value.trim();
+        const label = sampleLabel.value;
+
+        if (!text) {
+          trainError.textContent = "Please enter sample text before adding.";
+          trainError.classList.remove("hidden");
+          return;
+        }
+
+        samples.push({ text, label });
+        sampleText.value = "";
+        sampleText.focus();
+        renderSamples();
+      }
+
+      function clearQueue() {
+        samples.length = 0;
+        renderSamples();
+      }
+
+      function setProgress(value, label) {
+        progressValue = Math.max(0, Math.min(100, value));
+        trainProgressBar.style.width = `${progressValue}%`;
+        trainProgressPct.textContent = `${Math.round(progressValue)}%`;
+        trainProgressTrack.setAttribute("aria-valuenow", String(Math.round(progressValue)));
+        if (label) {
+          trainProgressText.textContent = label;
+        }
+      }
+
+      function startProgress() {
+        if (progressTimer) {
+          clearInterval(progressTimer);
+          progressTimer = null;
+        }
+        trainProgressWrap.classList.remove("hidden");
+        setProgress(7, "Preparing training...");
+
+        progressTimer = setInterval(() => {
+          if (progressValue >= 92) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+            return;
+          }
+          const nextStep = Math.random() * 7 + 2;
+          setProgress(progressValue + nextStep, "Training model...");
+        }, 320);
+      }
+
+      function finishProgress(success) {
+        if (progressTimer) {
+          clearInterval(progressTimer);
+          progressTimer = null;
+        }
+
+        if (success) {
+          setProgress(100, "Completed");
+        } else {
+          setProgress(Math.max(progressValue, 100), "Completed with issues");
+        }
+
+        setTimeout(() => {
+          trainProgressWrap.classList.add("hidden");
+          setProgress(0, "Preparing training...");
+        }, 700);
+      }
+
+      async function trainCustom() {
+        trainResult.classList.add("hidden");
+        trainError.classList.add("hidden");
+
+        if (!samples.length) {
+          trainError.textContent = "Add at least one sample to start training.";
+          trainError.classList.remove("hidden");
+          return;
+        }
+
+        trainBtn.disabled = true;
+        addSampleBtn.disabled = true;
+        clearBtn.disabled = true;
+        trainBtn.textContent = "Training...";
+        startProgress();
+
+        try {
+          const formData = new FormData();
+          formData.append("samples_json", JSON.stringify(samples));
+
+          const response = await fetch("/api/train", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Training failed.");
+          }
+
+          trainResult.textContent = data.message;
+          trainResult.classList.remove("hidden");
+          samples.length = 0;
+          renderSamples();
+          finishProgress(true);
+        } catch (err) {
+          trainError.textContent = err.message;
+          trainError.classList.remove("hidden");
+          finishProgress(false);
+        } finally {
+          trainBtn.disabled = false;
+          addSampleBtn.disabled = false;
+          clearBtn.disabled = false;
+          trainBtn.textContent = "Train Model";
+        }
+      }
+
+      sampleText.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          addSample();
+        }
+      });
+
+      addSampleBtn.addEventListener("click", addSample);
+      trainBtn.addEventListener("click", trainCustom);
+      clearBtn.addEventListener("click", clearQueue);
+      renderSamples();
     </script>
   </body>
 </html>

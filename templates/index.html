@@ -3,143 +3,263 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fake News Detector</title>
+    <title>Truth Lens | Fake News Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
-  <body>
-    <main class="container">
-      <h1>Fake News Detector</h1>
-      <p class="subtitle">Detect news and train custom data.</p>
+  <body class="chat-page">
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-b"></div>
 
-      {% if not model_found %}
-      <div class="message warning">
-        Model not found at <code>{{ model_path }}</code>.
-      </div>
-      {% endif %}
+    <main class="chat-shell reveal">
+      <aside class="chat-sidebar reveal reveal-delay-1">
+        <div class="brand-block">
+          <p class="brand">Truth Lens</p>
+          <p class="app-name">Fake news detection App</p>
+        </div>
 
-      <section class="card">
-        <h2>Detect News</h2>
-        <label for="newsText">News Content</label>
-        <textarea id="newsText" placeholder="Enter news text..."></textarea>
-        <button id="detectBtn">Detect</button>
+        <button id="newChatBtn" class="sidebar-btn sidebar-btn-primary" type="button">New Analysis</button>
+        <a class="sidebar-btn" href="{{ url_for('main.train_ui') }}">Open Training Page</a>
 
-        <div id="detectResult" class="message success hidden"></div>
-        <div id="detectError" class="message error hidden"></div>
-      </section>
+        <div class="sidebar-note">
+          <p class="mini-title">How it works</p>
+          <p class="panel-note">Send article text in chat. The assistant returns prediction + confidence for each message.</p>
+        </div>
+      </aside>
 
-      <section class="card">
-        <h2>Train Custom Data</h2>
-        <label for="trainText">Training Text</label>
-        <textarea id="trainText" placeholder="Enter one custom training sample..."></textarea>
+      <section class="chat-main panel reveal reveal-delay-2">
+        <header class="chat-header">
+          <h1>Detection Chat</h1>
+          <div class="status-card">
+            <span class="status-dot {% if model_found %}status-on{% else %}status-off{% endif %}"></span>
+            <p>{% if model_found %}Model Loaded{% else %}Model Missing{% endif %}</p>
+          </div>
+        </header>
 
-        <label for="trainLabel">Label</label>
-        <select id="trainLabel">
-          <option value="REAL">REAL</option>
-          <option value="FAKE">FAKE</option>
-        </select>
+        {% if not model_found %}
+        <div class="alert alert-warning">
+          Model not found at <code>{{ model_path }}</code>. Train a model first.
+        </div>
+        {% endif %}
 
-        <button id="trainBtn">Train Custom Data</button>
+        <div id="chatThread" class="chat-thread">
+          <article class="chat-msg assistant">
+            <div class="msg-avatar">TL</div>
+            <div class="msg-bubble">
+              <p class="msg-title">Truth Lens</p>
+              <p>
+                Paste a news article and I will classify it as <strong>Real News</strong> or <strong>Fake News</strong> with confidence.
+              </p>
+            </div>
+          </article>
+        </div>
 
-        <div id="trainResult" class="message success hidden"></div>
-        <div id="trainError" class="message error hidden"></div>
+        <form id="chatForm" class="chat-composer">
+          <label for="newsText">Article Text</label>
+          <textarea id="newsText" placeholder="Paste article content here..." rows="3"></textarea>
+          <div class="composer-footer">
+            <span id="charCount">0 characters</span>
+            <button id="detectBtn" type="submit">Analyze</button>
+          </div>
+        </form>
       </section>
     </main>
 
     <script>
+      const chatForm = document.getElementById("chatForm");
       const detectBtn = document.getElementById("detectBtn");
       const newsText = document.getElementById("newsText");
-      const detectResult = document.getElementById("detectResult");
-      const detectError = document.getElementById("detectError");
+      const charCount = document.getElementById("charCount");
+      const chatThread = document.getElementById("chatThread");
+      const newChatBtn = document.getElementById("newChatBtn");
 
-      const trainBtn = document.getElementById("trainBtn");
-      const trainText = document.getElementById("trainText");
-      const trainLabel = document.getElementById("trainLabel");
-      const trainResult = document.getElementById("trainResult");
-      const trainError = document.getElementById("trainError");
+      const initialMessage = chatThread.innerHTML;
 
-      async function detectNews() {
-        detectResult.classList.add("hidden");
-        detectError.classList.add("hidden");
+      function scrollToBottom() {
+        chatThread.scrollTop = chatThread.scrollHeight;
+      }
 
+      function autoResize() {
+        newsText.style.height = "auto";
+        newsText.style.height = `${Math.min(newsText.scrollHeight, 220)}px`;
+      }
+
+      function updateCharCount() {
+        charCount.textContent = `${newsText.value.length} characters`;
+      }
+
+      function appendUserMessage(text) {
+        const article = document.createElement("article");
+        article.className = "chat-msg user";
+
+        const avatar = document.createElement("div");
+        avatar.className = "msg-avatar";
+        avatar.textContent = "You";
+
+        const bubble = document.createElement("div");
+        bubble.className = "msg-bubble";
+
+        const paragraph = document.createElement("p");
+        paragraph.textContent = text;
+
+        bubble.appendChild(paragraph);
+        article.appendChild(avatar);
+        article.appendChild(bubble);
+        chatThread.appendChild(article);
+        scrollToBottom();
+      }
+
+      function appendTypingMessage() {
+        const article = document.createElement("article");
+        article.className = "chat-msg assistant";
+        article.innerHTML = `
+          <div class="msg-avatar">TL</div>
+          <div class="msg-bubble typing-bubble">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+          </div>
+        `;
+        chatThread.appendChild(article);
+        scrollToBottom();
+        return article;
+      }
+
+      function appendAssistantResult(label, confidence) {
+        const article = document.createElement("article");
+        article.className = "chat-msg assistant";
+
+        const labelClass = /fake/i.test(label) ? "badge-fake" : "badge-real";
+
+        const avatar = document.createElement("div");
+        avatar.className = "msg-avatar";
+        avatar.textContent = "TL";
+
+        const bubble = document.createElement("div");
+        bubble.className = "msg-bubble";
+
+        const title = document.createElement("p");
+        title.className = "msg-title";
+        title.textContent = "Analysis Complete";
+
+        const result = document.createElement("div");
+        result.className = "chat-result";
+
+        const badge = document.createElement("span");
+        badge.className = `result-badge ${labelClass}`;
+        badge.textContent = label;
+
+        const conf = document.createElement("span");
+        conf.className = "result-confidence";
+        conf.textContent = `Confidence: ${confidence}`;
+
+        result.appendChild(badge);
+        result.appendChild(conf);
+        bubble.appendChild(title);
+        bubble.appendChild(result);
+        article.appendChild(avatar);
+        article.appendChild(bubble);
+        chatThread.appendChild(article);
+        scrollToBottom();
+      }
+
+      function appendAssistantError(message) {
+        const article = document.createElement("article");
+        article.className = "chat-msg assistant";
+
+        const avatar = document.createElement("div");
+        avatar.className = "msg-avatar";
+        avatar.textContent = "TL";
+
+        const bubble = document.createElement("div");
+        bubble.className = "msg-bubble msg-error";
+
+        const paragraph = document.createElement("p");
+        paragraph.textContent = message;
+
+        bubble.appendChild(paragraph);
+        article.appendChild(avatar);
+        article.appendChild(bubble);
+        chatThread.appendChild(article);
+        scrollToBottom();
+      }
+
+      function clearChat() {
+        chatThread.innerHTML = initialMessage;
+        newsText.value = "";
+        updateCharCount();
+        autoResize();
+        newsText.focus();
+      }
+
+      async function detectNews(event) {
+        event.preventDefault();
         const text = newsText.value.trim();
+
         if (!text) {
-          detectError.textContent = "Please enter news text.";
-          detectError.classList.remove("hidden");
+          appendAssistantError("Please enter article text before sending.");
           return;
         }
 
+        appendUserMessage(text);
+        newsText.value = "";
+        updateCharCount();
+        autoResize();
+
         detectBtn.disabled = true;
-        detectBtn.textContent = "Detecting...";
+        detectBtn.textContent = "Analyzing...";
+
+        const typing = appendTypingMessage();
 
         try {
-          const response = await fetch("/predict", {
+          const response = await fetch("/api/predict", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text }),
           });
+
           const data = await response.json();
           if (!response.ok || !data.ok) {
             throw new Error(data.error || "Prediction failed.");
           }
 
-          let output = `Prediction: ${data.label}`;
-          if (data.confidence !== null && data.confidence !== undefined) {
-            output += ` | Confidence: ${(data.confidence * 100).toFixed(2)}%`;
-          }
-          detectResult.textContent = output;
-          detectResult.classList.remove("hidden");
-        } catch (err) {
-          detectError.textContent = err.message;
-          detectError.classList.remove("hidden");
+          const confidence =
+            data.confidence === null || data.confidence === undefined
+              ? "N/A"
+              : `${(data.confidence * 100).toFixed(2)}%`;
+
+          typing.remove();
+          appendAssistantResult(data.label, confidence);
+        } catch (error) {
+          typing.remove();
+          appendAssistantError(error.message || "Prediction failed.");
         } finally {
           detectBtn.disabled = false;
-          detectBtn.textContent = "Detect";
+          detectBtn.textContent = "Analyze";
         }
       }
 
-      async function trainCustom() {
-        trainResult.classList.add("hidden");
-        trainError.classList.add("hidden");
+      newsText.addEventListener("input", () => {
+        updateCharCount();
+        autoResize();
+      });
 
-        const text = trainText.value.trim();
-        const label = trainLabel.value;
-
-        if (!text) {
-          trainError.textContent = "Please enter training text.";
-          trainError.classList.remove("hidden");
-          return;
+      newsText.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          chatForm.requestSubmit();
         }
+      });
 
-        trainBtn.disabled = true;
-        trainBtn.textContent = "Training...";
+      newChatBtn.addEventListener("click", clearChat);
+      chatForm.addEventListener("submit", detectNews);
 
-        try {
-          const samples = [{ text, label }];
-          const formData = new FormData();
-          formData.append("samples_json", JSON.stringify(samples));
-
-          const response = await fetch("/train", {
-            method: "POST",
-            body: formData,
-          });
-          const data = await response.json();
-          if (!response.ok || !data.ok) {
-            throw new Error(data.error || "Training failed.");
-          }
-
-          trainResult.textContent = data.message;
-          trainResult.classList.remove("hidden");
-        } catch (err) {
-          trainError.textContent = err.message;
-          trainError.classList.remove("hidden");
-        } finally {
-          trainBtn.disabled = false;
-          trainBtn.textContent = "Train Custom Data";
-        }
-      }
-
-      detectBtn.addEventListener("click", detectNews);
-      trainBtn.addEventListener("click", trainCustom);
+      updateCharCount();
+      autoResize();
+      scrollToBottom();
     </script>
   </body>
 </html>

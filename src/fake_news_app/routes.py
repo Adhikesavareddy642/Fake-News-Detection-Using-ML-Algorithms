@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from fake_news_app.config import MODEL_PATH
 from fake_news_app.services.predictor import get_model, predict_from_text, refresh_model
@@ -17,7 +17,7 @@ bp = Blueprint('main', __name__)
 
 
 @bp.get('/')
-def index():
+def home():
     return render_template(
         'index.html',
         model_found=get_model() is not None,
@@ -25,8 +25,28 @@ def index():
     )
 
 
+@bp.get('/predict')
+def predict_ui():
+    return redirect(url_for('main.home'))
+
+
+@bp.get('/train')
+def train_ui():
+    return render_template(
+        'train.html',
+        model_found=get_model() is not None,
+        model_path=str(MODEL_PATH),
+    )
+
+
+@bp.get('/train-ui')
+def train_ui_legacy():
+    return redirect(url_for('main.train_ui'))
+
+
+@bp.post('/api/predict')
 @bp.post('/predict')
-def predict():
+def predict_api():
     payload = request.get_json(silent=True) or {}
     text = (payload.get('text') or '').strip()
 
@@ -50,8 +70,9 @@ def predict():
     return jsonify({'ok': True, **result})
 
 
+@bp.post('/api/train')
 @bp.post('/train')
-def train():
+def train_api():
     samples_json = (request.form.get('samples_json') or '').strip()
 
     try:
