@@ -767,6 +767,18 @@ button:disabled {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.sidebar-btn-train {
+  background: linear-gradient(135deg, #ca7a3b, #9b5525);
+  border-color: rgba(255, 222, 186, 0.45);
+  color: #fff6ee;
+  box-shadow: 0 8px 18px rgba(86, 44, 18, 0.28);
+  animation: train-cta-pulse 2.1s ease-in-out infinite;
+}
+
+.sidebar-btn-train:hover {
+  background: linear-gradient(135deg, #d68743, #a85c29);
+}
+
 .sidebar-note {
   margin-top: auto;
   border-top: 1px solid rgba(219, 251, 255, 0.2);
@@ -946,6 +958,18 @@ button:disabled {
   50% {
     transform: translateY(-4px);
     opacity: 1;
+  }
+}
+
+@keyframes train-cta-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 0 8px 18px rgba(86, 44, 18, 0.28);
+  }
+  50% {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 22px rgba(86, 44, 18, 0.35);
   }
 }
 
