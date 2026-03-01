@@ -52,3 +52,10 @@ The script reads dataset from:
 
 The model artifact is written to:
 `artifacts/fake_news_pipeline.joblib`
+
+## Train from UI (Your Own Data)
+The web UI now supports training with your own form data:
+- Add samples in the **Train Your Own Data** form (`text` + `label`)
+- Click **Train Custom Data**
+- New samples are appended to `datasets/fake_or_real_news.csv` content in-memory for training
+- Custom form samples are also saved for exact-match priority during prediction

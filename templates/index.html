@@ -4,68 +4,72 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fake News Detector</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Sora:wght@600;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body>
-    <main class="page">
+    <main class="container">
+      <h1>Fake News Detector</h1>
+      <p class="subtitle">Detect news and train custom data.</p>
+
+      {% if not model_found %}
+      <div class="message warning">
+        Model not found at <code>{{ model_path }}</code>.
+      </div>
+      {% endif %}
+
       <section class="card">
-        <div class="topbar">
-          <a href="/train-ui" class="link-btn">Train Your Dataset</a>
-        </div>
-        <p class="kicker">Machine Learning UI</p>
-        <h1>Fake News Detector</h1>
-        <p class="subtitle">Paste a headline or full article, then run a prediction.</p>
+        <h2>Detect News</h2>
+        <label for="newsText">News Content</label>
+        <textarea id="newsText" placeholder="Enter news text..."></textarea>
+        <button id="detectBtn">Detect</button>
 
-        {% if not model_found %}
-        <div class="alert">
-          Model not found at <code>{{ model_path }}</code>. Add your exported pipeline to start predictions.
-        </div>
-        {% endif %}
+        <div id="detectResult" class="message success hidden"></div>
+        <div id="detectError" class="message error hidden"></div>
+      </section>
 
-        <label for="newsText" class="label">News Content</label>
-        <textarea
-          id="newsText"
-          placeholder="Example: Government confirms a major policy change effective next week..."
-        ></textarea>
+      <section class="card">
+        <h2>Train Custom Data</h2>
+        <label for="trainText">Training Text</label>
+        <textarea id="trainText" placeholder="Enter one custom training sample..."></textarea>
 
-        <button id="predictBtn">Detect</button>
+        <label for="trainLabel">Label</label>
+        <select id="trainLabel">
+          <option value="REAL">REAL</option>
+          <option value="FAKE">FAKE</option>
+        </select>
 
-        <section id="result" class="result hidden">
-          <p class="result-label" id="resultLabel"></p>
-          <p class="result-confidence" id="resultConfidence"></p>
-        </section>
+        <button id="trainBtn">Train Custom Data</button>
 
-        <p id="error" class="error hidden"></p>
+        <div id="trainResult" class="message success hidden"></div>
+        <div id="trainError" class="message error hidden"></div>
       </section>
     </main>
 
     <script>
-      const predictBtn = document.getElementById("predictBtn");
+      const detectBtn = document.getElementById("detectBtn");
       const newsText = document.getElementById("newsText");
-      const resultBox = document.getElementById("result");
-      const resultLabel = document.getElementById("resultLabel");
-      const resultConfidence = document.getElementById("resultConfidence");
-      const errorBox = document.getElementById("error");
+      const detectResult = document.getElementById("detectResult");
+      const detectError = document.getElementById("detectError");
 
-      async function predict() {
-        errorBox.classList.add("hidden");
-        resultBox.classList.add("hidden");
+      const trainBtn = document.getElementById("trainBtn");
+      const trainText = document.getElementById("trainText");
+      const trainLabel = document.getElementById("trainLabel");
+      const trainResult = document.getElementById("trainResult");
+      const trainError = document.getElementById("trainError");
+
+      async function detectNews() {
+        detectResult.classList.add("hidden");
+        detectError.classList.add("hidden");
 
         const text = newsText.value.trim();
         if (!text) {
-          errorBox.textContent = "Please enter text before running detection.";
-          errorBox.classList.remove("hidden");
+          detectError.textContent = "Please enter news text.";
+          detectError.classList.remove("hidden");
           return;
         }
 
-        predictBtn.disabled = true;
-        predictBtn.textContent = "Checking...";
+        detectBtn.disabled = true;
+        detectBtn.textContent = "Detecting...";
 
         try {
           const response = await fetch("/predict", {
@@ -74,28 +78,68 @@
             body: JSON.stringify({ text }),
           });
           const data = await response.json();
-
           if (!response.ok || !data.ok) {
             throw new Error(data.error || "Prediction failed.");
           }
 
-          resultLabel.textContent = `Prediction: ${data.label}`;
+          let output = `Prediction: ${data.label}`;
           if (data.confidence !== null && data.confidence !== undefined) {
-            resultConfidence.textContent = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
-          } else {
-            resultConfidence.textContent = "Confidence: Not available for this model";
+            output += ` | Confidence: ${(data.confidence * 100).toFixed(2)}%`;
           }
-          resultBox.classList.remove("hidden");
+          detectResult.textContent = output;
+          detectResult.classList.remove("hidden");
         } catch (err) {
-          errorBox.textContent = err.message;
-          errorBox.classList.remove("hidden");
+          detectError.textContent = err.message;
+          detectError.classList.remove("hidden");
         } finally {
-          predictBtn.disabled = false;
-          predictBtn.textContent = "Detect";
+          detectBtn.disabled = false;
+          detectBtn.textContent = "Detect";
         }
       }
 
-      predictBtn.addEventListener("click", predict);
+      async function trainCustom() {
+        trainResult.classList.add("hidden");
+        trainError.classList.add("hidden");
+
+        const text = trainText.value.trim();
+        const label = trainLabel.value;
+
+        if (!text) {
+          trainError.textContent = "Please enter training text.";
+          trainError.classList.remove("hidden");
+          return;
+        }
+
+        trainBtn.disabled = true;
+        trainBtn.textContent = "Training...";
+
+        try {
+          const samples = [{ text, label }];
+          const formData = new FormData();
+          formData.append("samples_json", JSON.stringify(samples));
+
+          const response = await fetch("/train", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Training failed.");
+          }
+
+          trainResult.textContent = data.message;
+          trainResult.classList.remove("hidden");
+        } catch (err) {
+          trainError.textContent = err.message;
+          trainError.classList.remove("hidden");
+        } finally {
+          trainBtn.disabled = false;
+          trainBtn.textContent = "Train Custom Data";
+        }
+      }
+
+      detectBtn.addEventListener("click", detectNews);
+      trainBtn.addEventListener("click", trainCustom);
     </script>
   </body>
 </html>

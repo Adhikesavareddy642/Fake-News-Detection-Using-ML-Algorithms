@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 import joblib
 
-from fake_news_app.config import MODEL_PATH
+from fake_news_app.config import CUSTOM_SAMPLES_PATH, MODEL_PATH
+from fake_news_app.services.trainer import normalize_text
 
 LABEL_MAP = {0: 'Fake News', 1: 'Real News'}
 STRING_LABEL_MAP = {
@@ -14,6 +17,7 @@ STRING_LABEL_MAP = {
 
 model = None
 model_load_error = None
+custom_overrides = {}
 
 
 def load_model():
@@ -31,14 +35,36 @@ def get_model():
     global model, model_load_error
     if model is None and MODEL_PATH.exists():
         model, model_load_error = load_model()
+    if not custom_overrides and CUSTOM_SAMPLES_PATH.exists():
+        load_custom_overrides()
     return model
 
 
-def reload_model():
-    """Reload model from disk and refresh cache."""
-    global model, model_load_error
+def refresh_model():
+    """Force reload of model from disk (used after retraining)."""
+    global model, model_load_error, custom_overrides
     model, model_load_error = load_model()
+    custom_overrides = load_custom_overrides()
     return model
+
+
+def load_custom_overrides():
+    overrides = {}
+    if not CUSTOM_SAMPLES_PATH.exists():
+        return overrides
+    try:
+        with CUSTOM_SAMPLES_PATH.open(encoding='utf-8') as f:
+            rows = json.load(f)
+        if isinstance(rows, list):
+            for row in rows:
+                key = normalize_text(row.get('text', ''))
+                raw_label = row.get('label')
+                if key and raw_label in (0, 1, '0', '1', 'FAKE', 'REAL'):
+                    label_num = 0 if str(raw_label).upper() in {'0', 'FAKE'} else 1
+                    overrides[key] = LABEL_MAP[label_num]
+    except Exception:
+        return {}
+    return overrides
 
 
 def normalize_label(raw_pred):
@@ -66,6 +92,10 @@ def run_inference(model_obj, text: str):
 
 def predict_from_text(text: str):
     """Wrapper method that calls inference."""
+    custom_label = custom_overrides.get(normalize_text(text))
+    if custom_label:
+        return {'label': custom_label, 'confidence': 1.0}
+
     model_obj = get_model()
     if model_obj is None:
         if model_load_error:
@@ -75,3 +105,4 @@ def predict_from_text(text: str):
 
 
 model, model_load_error = load_model()
+custom_overrides = load_custom_overrides()
