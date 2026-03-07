@@ -32,6 +32,7 @@ htmlcov/
 
 # Local runtime artifacts
 *.log
+.env
 
 # Model/data artifacts (keep folder, ignore large/generated files)
 artifacts/*

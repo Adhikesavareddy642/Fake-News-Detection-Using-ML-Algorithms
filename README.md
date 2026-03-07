@@ -35,11 +35,30 @@ This project includes a Flask web app for fake-news prediction and a training/ex
    ```bash
    pip install -r requirements.txt
    ```
-3. Start the app:
+3. Create your env file:
+   ```bash
+   cp .env.example .env
+   ```
+4. Edit `.env` and set your real keys (for example `GNEWS_API_KEY`).
+5. Start the app:
    ```bash
    python app.py
    ```
-4. Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+6. Open [http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+## Real-Time News Search (GNews)
+- Put `GNEWS_API_KEY` in `.env` (see `.env.example`).
+- Default country is India via `GNEWS_COUNTRY=in` (override in `.env` if needed).
+- Open `http://127.0.0.1:5000/live-news` to search live topics and classify results.
+- API endpoint:
+  - `GET /api/live-detect?query=ai&limit=5`
+  - `POST /api/live-detect` with JSON body: `{"query":"ai","limit":5}`
+- Source-based verification:
+  - The app ships with a broad built-in trusted-source list (major global outlets + fact-checking sites).
+  - Indian domains are also included by default (for example: `thehindu.com`, `indiatimes.com`, `indianexpress.com`, `ndtv.com`, `livemint.com`).
+  - Add extra sources in `.env` using `TRUSTED_NEWS_SOURCES` (comma-separated); these are merged with defaults.
+  - `SOURCE_TRUST_WEIGHT` controls how much source trust contributes to the final verification score.
+  - For trusted sources, live detection marks the article as verified and sets final label to `Real News`.
 
 ## Train/Export Model
 Run:

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Truth Lens | Live News Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="bg-glow bg-glow-a"></div>
+    <div class="bg-glow bg-glow-c"></div>
+
+    <main class="shell shell-train">
+      <header class="topbar reveal">
+        <div class="brand-block">
+          <p class="brand">Truth Lens</p>
+          <p class="app-name">Fake News Detection App</p>
+        </div>
+        <div class="topbar-links">
+          <a class="ghost-link" href="{{ url_for('main.home') }}">Detection Chat</a>
+          <a class="ghost-link" href="{{ url_for('main.train_ui') }}">Training Workspace</a>
+        </div>
+      </header>
+
+      <section class="hero reveal reveal-delay-1">
+        <p class="kicker">Real-Time Search</p>
+        <h1>Search GNews and score each result instantly.</h1>
+        <p class="subtitle">
+          Enter a topic, fetch latest stories from GNews, and run your current model on each article.
+        </p>
+      </section>
+
+      <div class="page-grid reveal reveal-delay-2">
+        <section class="panel detect-panel">
+          {% if not model_found %}
+          <div class="alert alert-warning">
+            Model not found at <code>{{ model_path }}</code>. Predictions need a trained model.
+          </div>
+          {% endif %}
+
+          {% if not gnews_configured %}
+          <div class="alert alert-warning">
+            GNews API key is missing. Set <code>GNEWS_API_KEY</code> in your environment, then reload.
+          </div>
+          {% endif %}
+
+          <form id="liveSearchForm" class="live-search-form">
+            <div class="search-spotlight">
+              <div class="search-spotlight-head">
+                <p class="search-kicker">Live Feed Explorer</p>
+                <p class="search-note">India-first search with trusted-source scoring</p>
+              </div>
+
+              <label for="newsQuery">Search Topic</label>
+              <div class="search-input-wrap">
+                <span class="search-input-icon" aria-hidden="true">Search</span>
+                <input id="newsQuery" type="text" placeholder="Example: budget 2026, election updates, AI policy..." />
+              </div>
+
+              <div class="quick-topics">
+                <p class="mini-title quick-topics-title">Quick Topics</p>
+                <div class="topic-chip-row">
+                  <button class="topic-chip" data-topic="India budget 2026" type="button">Budget</button>
+                  <button class="topic-chip" data-topic="India election updates" type="button">Elections</button>
+                  <button class="topic-chip" data-topic="India startup funding" type="button">Startups</button>
+                  <button class="topic-chip" data-topic="India cricket news" type="button">Cricket</button>
+                  <button class="topic-chip" data-topic="India climate and monsoon" type="button">Climate</button>
+                  <button class="topic-chip" data-topic="India foreign policy" type="button">Foreign Policy</button>
+                </div>
+              </div>
+
+              <div class="live-controls">
+                <div class="live-limit-wrap">
+                  <label for="maxResults">Max Results</label>
+                  <input id="maxResults" type="number" min="1" max="10" value="5" />
+                </div>
+                <div class="actions live-actions">
+                  <button id="liveSearchBtn" type="submit">Search + Analyze</button>
+                </div>
+              </div>
+            </div>
+          </form>
+
+          <div id="liveStatus" class="alert alert-success hidden"></div>
+          <div id="liveError" class="alert alert-error hidden"></div>
+
+          <div id="liveResults" class="live-results"></div>
+        </section>
+
+        <aside class="panel info-panel">
+          <h3>Endpoint</h3>
+          <p class="panel-note">
+            Use <code>/api/live-detect?query=your-topic&limit=5</code> to fetch GNews and classify the results in one API call.
+          </p>
+
+          <p class="mini-title">Notes</p>
+          <ul class="checklist">
+            <li>Limit range is <code>1..10</code> per request.</li>
+            <li>Final result combines model confidence and source trust score.</li>
+            <li>Requires <code>GNEWS_API_KEY</code> in the app environment.</li>
+          </ul>
+
+          <div class="status-card">
+            <span class="status-dot {% if model_found and gnews_configured %}status-on{% else %}status-off{% endif %}"></span>
+            <p>{% if model_found and gnews_configured %}Ready for live analysis{% else %}Setup required{% endif %}</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      const liveSearchForm = document.getElementById("liveSearchForm");
+      const newsQuery = document.getElementById("newsQuery");
+      const maxResults = document.getElementById("maxResults");
+      const liveSearchBtn = document.getElementById("liveSearchBtn");
+      const liveStatus = document.getElementById("liveStatus");
+      const liveError = document.getElementById("liveError");
+      const liveResults = document.getElementById("liveResults");
+      const topicChips = document.querySelectorAll(".topic-chip");
+
+      function showStatus(message) {
+        liveStatus.textContent = message;
+        liveStatus.classList.remove("hidden");
+      }
+
+      function showError(message) {
+        liveError.textContent = message;
+        liveError.classList.remove("hidden");
+      }
+
+      function clearMessages() {
+        liveStatus.classList.add("hidden");
+        liveError.classList.add("hidden");
+        liveStatus.textContent = "";
+        liveError.textContent = "";
+      }
+
+      function formatConfidence(value) {
+        if (value === null || value === undefined) {
+          return "N/A";
+        }
+        return `${(value * 100).toFixed(2)}%`;
+      }
+
+      function renderResults(articles) {
+        liveResults.innerHTML = "";
+
+        if (!articles.length) {
+          const empty = document.createElement("div");
+          empty.className = "alert alert-warning";
+          empty.textContent = "No articles returned for this query.";
+          liveResults.appendChild(empty);
+          return;
+        }
+
+        articles.forEach((article) => {
+          const card = document.createElement("article");
+          card.className = "result-card news-card";
+
+          const heading = document.createElement("p");
+          heading.className = "result-heading";
+          heading.textContent = article.source_name || "Unknown source";
+
+          const title = document.createElement("a");
+          title.className = "news-title-link";
+          title.href = article.url || "#";
+          title.target = "_blank";
+          title.rel = "noopener noreferrer";
+          title.textContent = article.title || "Untitled article";
+
+          const description = document.createElement("p");
+          description.className = "news-description";
+          description.textContent = article.description || "No description available.";
+
+          const meta = document.createElement("p");
+          meta.className = "news-meta";
+          meta.textContent = article.published_at ? `Published: ${article.published_at}` : "Published date unavailable";
+
+          const result = document.createElement("div");
+          result.className = "result-main";
+
+          const badge = document.createElement("span");
+          badge.className = `result-badge ${/fake/i.test(article.label) ? "badge-fake" : "badge-real"}`;
+          badge.textContent = article.label || "Unknown";
+
+          const trustBadge = document.createElement("span");
+          trustBadge.className = `result-badge ${article.trusted_source ? "badge-verified" : "badge-neutral"}`;
+          trustBadge.textContent = article.trusted_source ? "Trusted Source" : "Unverified Source";
+
+          const confidence = document.createElement("span");
+          confidence.className = "result-confidence";
+          confidence.textContent = `Confidence: ${formatConfidence(article.confidence)}`;
+
+          const verification = document.createElement("p");
+          verification.className = "news-verification";
+          verification.textContent = `${article.verification_status || "Needs Verification"} | Score: ${formatConfidence(
+            article.verification_score
+          )} | Model: ${article.model_label || "N/A"}`;
+
+          result.appendChild(badge);
+          result.appendChild(trustBadge);
+          result.appendChild(confidence);
+          card.appendChild(heading);
+          card.appendChild(title);
+          card.appendChild(description);
+          card.appendChild(meta);
+          card.appendChild(verification);
+          card.appendChild(result);
+          liveResults.appendChild(card);
+        });
+      }
+
+      async function searchAndAnalyze(event) {
+        event.preventDefault();
+        clearMessages();
+
+        const query = newsQuery.value.trim();
+        const limit = Number(maxResults.value || 5);
+
+        if (!query) {
+          showError("Please enter a query before searching.");
+          return;
+        }
+
+        liveSearchBtn.disabled = true;
+        liveSearchBtn.textContent = "Searching...";
+        liveResults.innerHTML = "";
+
+        try {
+          const params = new URLSearchParams({
+            query,
+            limit: String(limit),
+          });
+
+          const response = await fetch(`/api/live-detect?${params.toString()}`);
+          const data = await response.json();
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Live detection failed.");
+          }
+
+          renderResults(data.articles || []);
+          showStatus(`Analyzed ${data.count} articles for "${data.query}" with source verification.`);
+        } catch (error) {
+          showError(error.message || "Live detection failed.");
+        } finally {
+          liveSearchBtn.disabled = false;
+          liveSearchBtn.textContent = "Search + Analyze";
+        }
+      }
+
+      topicChips.forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const topic = chip.dataset.topic || chip.textContent || "";
+          newsQuery.value = topic;
+          newsQuery.focus();
+        });
+      });
+
+      liveSearchForm.addEventListener("submit", searchAndAnalyze);
+    </script>
+  </body>
+</html>

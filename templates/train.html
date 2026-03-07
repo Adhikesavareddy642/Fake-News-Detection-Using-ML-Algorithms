@@ -22,7 +22,10 @@
           <p class="brand">Truth Lens</p>
           <p class="app-name">Fake News Detection App</p>
         </div>
-        <a class="ghost-link" href="{{ url_for('main.home') }}">Back To Detection</a>
+        <div class="topbar-links">
+          <a class="ghost-link" href="{{ url_for('main.home') }}">Detection Chat</a>
+          <a class="ghost-link" href="{{ url_for('main.live_news_ui') }}">Live News Search</a>
+        </div>
       </header>
 
       <section class="hero reveal reveal-delay-1">
